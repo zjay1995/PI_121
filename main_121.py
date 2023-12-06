@@ -17,7 +17,6 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.font as tkFont
 import pylab
-import paho.mqtt.client as paho
 import ssl
 import Adafruit_ADS1x15
 #from Adafruit_MAX31856 import MAX31856 as MAX31856
