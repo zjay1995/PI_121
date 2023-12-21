@@ -150,14 +150,62 @@ class startup:
 #        self.button_method.grid(row=3, column=3)
 			
 			
-				master.after(150,self.GetSensor())
+			
+				"""
+				This function is executed automatically when the module is run directly.
+				"""
+				
+				# Store the channels in a list and convert the list to a channel mask that
+				# can be passed as a parameter to the MCC 128 functions.
+				channels = [0]
+				channel_mask = chan_list_to_mask(channels)
+				num_channels = len(channels)
+				
+				input_mode = AnalogInputMode.SE
+				input_range = AnalogInputRange.BIP_10V
+				
+				samples_per_channel = 0
+				
+				options = OptionFlags.CONTINUOUS
+				
+				scan_rate = 1000.0
+				
+				# Select an MCC 128 HAT device to use.
+				address = select_hat_device(HatIDs.MCC_128)
+				hat = mcc128(address)
+				
+				hat.a_in_mode_write(input_mode)
+				hat.a_in_range_write(input_range)
+				
+				print('\nSelected MCC 128 HAT device at address', address)
+				
+				actual_scan_rate = hat.a_in_scan_actual_rate(num_channels, scan_rate)
+				
+				print('\nMCC 128 continuous scan example')
+				print('    Functions demonstrated:')
+				print('         mcc128.a_in_scan_start')
+				print('         mcc128.a_in_scan_read')
+				print('         mcc128.a_in_scan_stop')
+				print('         mcc128.a_in_scan_cleanup')
+				print('         mcc128.a_in_mode_write')
+				print('         mcc128.a_in_range_write')
+				print('    Input mode: ', input_mode_to_string(input_mode))
+				print('    Input range: ', input_range_to_string(input_range))
+				print('    Channels: ', end='')
+				print(', '.join([str(chan) for chan in channels]))
+				print('    Requested scan rate: ', scan_rate)
+				print('    Actual scan rate: ', actual_scan_rate)
+				print('    Options: ', enum_mask_to_string(OptionFlags, options))
 			
 			
-		def GetSensor(self):
+				master.after(150,self.GetSensor(hat))
+			
+			
+		def GetSensor(self, hat):
 				## replace this with code to read sensor
 				try:
 					total_samples_read = 0
-					read_request_size = READ_ALL_AVAILABLE
+					read_request_size = -1
 					
 					# When doing a continuous scan, the timeout value will be ignored in the
 					# call to a_in_scan_read because we will be requesting that all available
@@ -169,36 +217,25 @@ class startup:
 					# to -1 (READ_ALL_AVAILABLE), this function returns immediately with
 					# whatever samples are available (up to user_buffer_size) and the timeout
 					# parameter is ignored.
-					while True:
-						read_result = hat.a_in_scan_read(read_request_size, timeout)
+					read_result = hat.a_in_scan_read(read_request_size, timeout)
+					samples_read_per_channel = int(len(read_result.data) / 1)
+					total_samples_read += samples_read_per_channel
+					# Display the last sample for each channel.
+					print('\r{:12}'.format(samples_read_per_channel),
+							' {:12} '.format(total_samples_read), end='')
+					
+					if samples_read_per_channel > 0:
+						index = samples_read_per_channel * 1 - 1
 						
-						# Check for an overrun error
-						if read_result.hardware_overrun:
-							print('\n\nHardware overrun\n')
-							break
-						elif read_result.buffer_overrun:
-							print('\n\nBuffer overrun\n')
-							break
+						for i in range(1):
+							print('{:10.5f}'.format(read_result.data[index+i]), 'V ',
+									end='')
+						stdout.flush()
 						
-						samples_read_per_channel = int(len(read_result.data) / num_channels)
-						total_samples_read += samples_read_per_channel
+						sleep(0.1)
 						
-						# Display the last sample for each channel.
-						print('\r{:12}'.format(samples_read_per_channel),
-								' {:12} '.format(total_samples_read), end='')
-						
-						if samples_read_per_channel > 0:
-							index = samples_read_per_channel * num_channels - num_channels
-							
-							for i in range(num_channels):
-								print('{:10.5f}'.format(read_result.data[index+i]), 'V ',
-										end='')
-							stdout.flush()
-							
-							sleep(0.1)
-							
-						data = read_result.data[index+i]
-						sensor_reading.set(data)
+					data = read_result.data[index+i]
+					sensor_reading.set(data)
 #           time.sleep(0.2)
 				except:
 						print("problem with sensor reading...")
@@ -1014,99 +1051,15 @@ def end_fullscreen(root):
 		root.attributes('-fullscreen',False)
 	
 def main():
-	"""
-	This function is executed automatically when the module is run directly.
-	"""
-	
-	# Store the channels in a list and convert the list to a channel mask that
-	# can be passed as a parameter to the MCC 128 functions.
-	channels = [0, 1, 2, 3]
-	channel_mask = chan_list_to_mask(channels)
-	num_channels = len(channels)
-	
-	input_mode = AnalogInputMode.SE
-	input_range = AnalogInputRange.BIP_10V
-	
-	samples_per_channel = 0
-	
-	options = OptionFlags.CONTINUOUS
-	
-	scan_rate = 1000.0
-	
-	try:
-		# Select an MCC 128 HAT device to use.
-		address = select_hat_device(HatIDs.MCC_128)
-		hat = mcc128(address)
-		
-		hat.a_in_mode_write(input_mode)
-		hat.a_in_range_write(input_range)
-		
-		print('\nSelected MCC 128 HAT device at address', address)
-		
-		actual_scan_rate = hat.a_in_scan_actual_rate(num_channels, scan_rate)
-		
-		print('\nMCC 128 continuous scan example')
-		print('    Functions demonstrated:')
-		print('         mcc128.a_in_scan_start')
-		print('         mcc128.a_in_scan_read')
-		print('         mcc128.a_in_scan_stop')
-		print('         mcc128.a_in_scan_cleanup')
-		print('         mcc128.a_in_mode_write')
-		print('         mcc128.a_in_range_write')
-		print('    Input mode: ', input_mode_to_string(input_mode))
-		print('    Input range: ', input_range_to_string(input_range))
-		print('    Channels: ', end='')
-		print(', '.join([str(chan) for chan in channels]))
-		print('    Requested scan rate: ', scan_rate)
-		print('    Actual scan rate: ', actual_scan_rate)
-		print('    Options: ', enum_mask_to_string(OptionFlags, options))
-		
-		try:
-			input('\nPress ENTER to continue ...')
-		except (NameError, SyntaxError):
-			pass
-			
-			
-		# Configure and start the scan.
-		# Since the continuous option is being used, the samples_per_channel
-		# parameter is ignored if the value is less than the default internal
-		# buffer size (10000 * num_channels in this case). If a larger internal
-		# buffer size is desired, set the value of this parameter accordingly.
-		hat.a_in_scan_start(channel_mask, samples_per_channel, scan_rate,
-							options)
-		
-		print('Starting scan ... Press Ctrl-C to stop\n')
-		
-		# Display the header row for the data table.
-		print('Samples Read    Scan Count', end='')
-		for chan, item in enumerate(channels):
-			print('    Channel ', item, sep='', end='')
-		print('')
-		
-		try:
-			read_and_display_data(hat, num_channels)
-			
-		except KeyboardInterrupt:
-			# Clear the '^C' from the display.
-			print(CURSOR_BACK_2, ERASE_TO_END_OF_LINE, '\n')
-			print('Stopping')
-			hat.a_in_scan_stop()
-			hat.a_in_scan_cleanup()
-			
-	except (HatError, ValueError) as err:
-		print('\n', err)
-		
-		
-		
-		root = tk.Tk()
-		app = startup(root)
-		root.title("Welcome to PID Analyzer")
-		root.configure(background="black")
-		root.attributes('-fullscreen', False)
-		root.geometry('700x520')
-		root.bind('<Return>',lambda event:toggle_fullscreen(root))
-		root.bind('<Escape>',lambda event:end_fullscreen(root))
-		root.mainloop()
+	root = tk.Tk()
+	app = startup(root)
+	root.title("Welcome to PID Analyzer")
+	root.configure(background="black")
+	root.attributes('-fullscreen', False)
+	root.geometry('700x520')
+	root.bind('<Return>',lambda event:toggle_fullscreen(root))
+	root.bind('<Escape>',lambda event:end_fullscreen(root))
+	root.mainloop()
 	
 	
 if __name__ == '__main__':
